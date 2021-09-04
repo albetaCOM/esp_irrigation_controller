@@ -1,0 +1,748 @@
+esphome:
+  name: controlador_reg
+  platform: ESP32
+  board: nodemcu-32s
+  includes:
+    - irrigation.h
+
+wifi:
+  ssid: " "
+  password: " "
+  manual_ip:
+    static_ip: XXX.XXX.XXX.XXX
+    gateway: XXX.XXX.XXX.XXX
+    subnet: XXX.XXX.XXX.XXX
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Controlador Reg Fallback Hotspot"
+    password: "HcIkjUJHSweV"
+
+captive_portal:
+
+# Enable logging
+logger:
+  level: DEBUG
+  baud_rate: 0 #Important. You can't use serial port
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  # ============================================================================= #
+  # Irrigation time remaining
+  - id: remaining_time1
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: remaining_time2
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: remaining_time3
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: remaining_time4
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: remaining_time5
+    type: int
+    restore_value: no
+    initial_value: "0"    
+  # ============================================================================= #
+switch:
+  # ============================================================================= #
+  # Virtual Zone Switches which toggle the relay, and store the current state.
+  - platform: template
+    name: Irrigation Zone1
+    id: irrigation_zone1
+    lambda: return id(relay1).state;
+    optimistic: true
+    turn_on_action:
+      # Turn on if not disabled.
+      if:
+        condition:
+          lambda: return id(irrigation_zone1_duration) > 0;
+        then:
+          - switch.turn_on: relay1
+    turn_off_action:
+      - switch.turn_off: relay1
+
+  - platform: template
+    name: Irrigation Zone2
+    id: irrigation_zone2
+    lambda: return id(relay2).state;
+    optimistic: true
+    turn_on_action:
+      - logger.log:
+          format: "Irrigation zone 2 turn on action"
+      # Turn on if not disabled.
+      - if:
+          condition:
+            lambda: return id(irrigation_zone2_duration) > 0;
+          then:
+            - switch.turn_on: relay2
+    turn_off_action:
+      - logger.log:
+          format: "Irrigation zone 2 turn off action"
+      - switch.turn_off: relay2
+
+  - platform: template
+    name: Irrigation Zone3
+    id: irrigation_zone3
+    lambda: return id(relay3).state;
+    optimistic: true
+    turn_on_action:
+      # Turn on if not disabled.
+      if:
+        condition:
+          lambda: return id(irrigation_zone3_duration) > 0;
+        then:
+          - switch.turn_on: relay3
+    turn_off_action:
+      - switch.turn_off: relay3
+
+  - platform: template
+    name: Irrigation Zone4
+    id: irrigation_zone4
+    lambda: return id(relay4).state;
+    optimistic: true
+    turn_on_action:
+      # Turn on if not disabled.
+      if:
+        condition:
+          lambda: return id(irrigation_zone4_duration) > 0;
+        then:
+          - switch.turn_on: relay4
+    turn_off_action:
+      - switch.turn_off: relay4
+
+  - platform: template
+    name: Irrigation Zone5
+    id: irrigation_zone5
+    lambda: return id(relay5).state;
+    optimistic: true
+    turn_on_action:
+      # Turn on if not disabled.
+      if:
+        condition:
+          lambda: return id(irrigation_zone5_duration) > 0;
+        then:
+          - switch.turn_on: relay5
+    turn_off_action:
+      - switch.turn_off: relay5
+
+  # ============================================================================= #
+  # Relays which trigger solenoids
+  - platform: gpio
+    id: relay1
+    pin:
+      number: GPIO14
+      inverted: yes    
+    on_turn_on:
+      then:
+        # Start the countdown timer.
+        - globals.set:
+            id: remaining_time1
+            value: !lambda return id(irrigation_zone1_duration).state * 60;
+        # Show the remaining time.
+        #- sensor.template.publish:
+        #    id: irrigation_zone1_remaining
+        #    state: !lambda return id(irrigation_zone1_duration).state;
+        # Show the "Next Time" as "ara".
+        - text_sensor.template.publish:
+            id: irrigation_zone1_next
+            state: "now"
+    on_turn_off:
+      then:
+        - globals.set:
+            id: remaining_time1
+            value: "0"
+        #- sensor.template.publish:
+        #    id: irrigation_zone1_remaining
+        #    state: "0"
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone1_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone1_times).state);
+  - platform: gpio
+    id: relay2
+    pin:
+      number: GPIO27
+      inverted: yes    
+    on_turn_on:
+      then:
+        # Start the countdown timer.
+        - globals.set:
+            id: remaining_time2
+            value: !lambda return id(irrigation_zone2_duration).state * 60;
+        - logger.log:
+            format: "Starting count down timer remaining_time2 time : %d"
+            args: [ 'id(remaining_time2)']
+        # Show the remaining time.
+        #- sensor.template.publish:
+        #    id: irrigation_zone2_remaining
+        #    state: !lambda return id(irrigation_zone2_duration).state;
+        #- logger.log:
+        #    format: "Updating irrigation_zone2_remaining to %d"
+        #    args: [ 'id(irrigation_zone2_duration).state']
+        # Show the "Next Time" as "ara".
+        - text_sensor.template.publish:
+            id: irrigation_zone2_next
+            state: "ara"
+    on_turn_off:
+      then:
+        - globals.set:
+            id: remaining_time2
+            value: "0"
+        - logger.log:
+            format: "remaining_time2 = %d"
+            args: [ 'id(remaining_time2)']
+        #- logger.log:
+        #    format: "Publish irrigation_zone2_remaining to %d"
+        #    args: [ '0']
+        #- sensor.template.publish:
+        #    id: irrigation_zone2_remaining
+        #    state: "0"
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone2_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone2_times).state);
+  - platform: gpio
+    id: relay3
+    pin:
+      number: GPIO26
+      inverted: yes    
+    on_turn_on:
+      then:
+        # Start the countdown timer.
+        - globals.set:
+            id: remaining_time3
+            value: !lambda return id(irrigation_zone3_duration).state * 60;
+        # Show the remaining time.
+        #- sensor.template.publish:
+        #    id: irrigation_zone3_remaining
+        #    state: !lambda return id(irrigation_zone3_duration).state;
+        # Show the "Next Time" as "ara".
+        - text_sensor.template.publish:
+            id: irrigation_zone3_next
+            state: "ara"
+    on_turn_off:
+      then:
+        - globals.set:
+            id: remaining_time3
+            value: "0"
+        #- sensor.template.publish:
+        #    id: irrigation_zone3_remaining
+        #    state: "0"
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone3_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone3_times).state);
+  - platform: gpio
+    id: relay4
+    pin:
+      number: GPIO25
+      inverted: yes    
+    on_turn_on:
+      then:
+        # Start the countdown timer.
+        - globals.set:
+            id: remaining_time4
+            value: !lambda return id(irrigation_zone4_duration).state * 60;
+        # Show the remaining time.
+        #- sensor.template.publish:
+        #    id: irrigation_zone4_remaining
+        #    state: !lambda return id(irrigation_zone4_duration).state;
+        # Show the "Next Time" as "ara".
+        - text_sensor.template.publish:
+            id: irrigation_zone4_next
+            state: "ara"
+    on_turn_off:
+      then:
+        - globals.set:
+            id: remaining_time4
+            value: "0"
+        #- sensor.template.publish:
+        #    id: irrigation_zone4_remaining
+        #    state: "0"
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone4_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone4_times).state);
+  - platform: gpio
+    id: relay5
+    pin:
+      number: GPIO33
+      inverted: yes    
+    on_turn_on:
+      then:
+        # Start the countdown timer.
+        - globals.set:
+            id: remaining_time5
+            value: !lambda return id(irrigation_zone5_duration).state * 60;
+        # Show the remaining time.
+        #- sensor.template.publish:
+        #    id: irrigation_zone5_remaining
+        #    state: !lambda return id(irrigation_zone5_duration).state;
+        # Show the "Next Time" as "ara".
+        - text_sensor.template.publish:
+            id: irrigation_zone5_next
+            state: "ara"
+    on_turn_off:
+      then:
+        - globals.set:
+            id: remaining_time5
+            value: "0"
+        #- sensor.template.publish:
+        #    id: irrigation_zone5_remaining
+        #    state: "0"
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone5_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone5_times).state);
+
+sensor:
+  # ============================================================================= #
+  # Retrieve durations settings from the Home Assistant UI.
+  - platform: homeassistant
+    id: ui_zone1_duration
+    entity_id: input_number.irrigation_zone1_duration
+    on_value:
+      then:
+      - sensor.template.publish:
+          id: irrigation_zone1_duration
+          state: !lambda return id(ui_zone1_duration).state;
+
+  - platform: homeassistant
+    id: ui_zone2_duration
+    entity_id: input_number.irrigation_zone2_duration
+    on_value:
+      then:
+      - sensor.template.publish:
+          id: irrigation_zone2_duration
+          state: !lambda return id(ui_zone2_duration).state;
+
+  - platform: homeassistant
+    id: ui_zone3_duration
+    entity_id: input_number.irrigation_zone3_duration
+    on_value:
+      then:
+      - sensor.template.publish:
+          id: irrigation_zone3_duration
+          state: !lambda return id(ui_zone3_duration).state;
+          
+  - platform: homeassistant
+    id: ui_zone4_duration
+    entity_id: input_number.irrigation_zone4_duration
+    on_value:
+      then:
+      - sensor.template.publish:
+          id: irrigation_zone4_duration
+          state: !lambda return id(ui_zone4_duration).state;
+          
+  - platform: homeassistant
+    id: ui_zone5_duration
+    entity_id: input_number.irrigation_zone5_duration
+    on_value:
+      then:
+      - sensor.template.publish:
+          id: irrigation_zone5_duration
+          state: !lambda return id(ui_zone5_duration).state;
+
+  # ============================================================================= #
+  # Store durations.
+  - platform: template
+    name: Irrigation Zone1 Duration
+    id: irrigation_zone1_duration
+  - platform: template
+    name: Irrigation Zone2 Duration
+    id: irrigation_zone2_duration
+  - platform: template
+    name: Irrigation Zone3 Duration
+    id: irrigation_zone3_duration
+  - platform: template
+    name: Irrigation Zone4 Duration
+    id: irrigation_zone4_duration
+  - platform: template
+    name: Irrigation Zone5 Duration
+    id: irrigation_zone5_duration
+
+  # ============================================================================= #
+  # Countdown sensors.
+  - platform: template
+    name: Irrigation Zone1 Remaining
+    id: irrigation_zone1_remaining
+    #lambda: "return ((id(remaining_time1) + 1)/60);"
+    accuracy_decimals: 0
+    unit_of_measurement: minutes
+    icon: mdi:timer-outline
+    #on_value:
+    #  then:
+    #    - if:
+    #        condition:
+    #          lambda: return id(remaining_time1) <= 0;
+    #        then:
+    #          - switch.turn_off: relay1
+    #          - lambda: id(remaining_time1) = 0;
+
+  - platform: template
+    name: Irrigation Zone2 Remaining
+    id: irrigation_zone2_remaining
+    #lambda: "return ((id(remaining_time2) + 1)/60);"
+    accuracy_decimals: 0
+    unit_of_measurement: minutes
+    icon: mdi:timer-outline
+    #on_value:
+    #  then:
+    #    - if:
+    #        condition:
+    #          lambda: return id(remaining_time2) <= 0;
+    #        then:
+    #          - logger.log:
+    #              format: "irrigation_zone2_remaining updated with remaining_time2 = %d -> relay2 switch off"
+    #              args: [ 'id(remaining_time2)']
+    #          - switch.turn_off: relay2
+    #          - lambda: id(remaining_time2) = 0;
+
+  - platform: template
+    name: Irrigation Zone3 Remaining
+    id: irrigation_zone3_remaining
+    #lambda: "return ((id(remaining_time3) + 1)/60);"
+    accuracy_decimals: 0
+    unit_of_measurement: minutes
+    icon: mdi:timer-outline
+    #on_value:
+    #  then:
+    #    - if:
+    #        condition:
+    #          lambda: return id(remaining_time3) <= 0;
+    #        then:
+    #          - switch.turn_off: relay3
+    #          - lambda: id(remaining_time3) = 0;
+
+  - platform: template
+    name: Irrigation Zone4 Remaining
+    id: irrigation_zone4_remaining
+    #lambda: "return ((id(remaining_time4) + 1)/60);"
+    accuracy_decimals: 0
+    unit_of_measurement: minutes
+    icon: mdi:timer-outline
+    #on_value:
+    #  then:
+    #    - if:
+    #        condition:
+    #          lambda: return id(remaining_time4) <= 0;
+    #        then:
+    #          - switch.turn_off: relay4
+    #          - lambda: id(remaining_time4) = 0;
+
+  - platform: template
+    name: Irrigation Zone5 Remaining
+    id: irrigation_zone5_remaining
+    #lambda: "return ((id(remaining_time5) + 1)/60);"
+    accuracy_decimals: 0
+    unit_of_measurement: minutes
+    icon: mdi:timer-outline
+    #on_value:
+    #  then:
+    #    - if:
+    #        condition:
+    #          lambda: return id(remaining_time5) <= 0;
+    #        then:
+    #          - switch.turn_off: relay5
+    #          - lambda: id(remaining_time5) = 0;
+
+
+text_sensor:
+  # ============================================================================= #
+  # Retrieve list of times from the Home Assistant UI.
+  - platform: homeassistant
+    id: ui_zone1_times
+    entity_id: input_text.irrigation_zone1_times
+    on_value:
+      then:
+        #- delay: 10sec
+        - text_sensor.template.publish:
+            id: irrigation_zone1_times
+            state: !lambda return id(ui_zone1_times).state;
+
+  - platform: homeassistant
+    id: ui_zone2_times
+    entity_id: input_text.irrigation_zone2_times
+    on_value:
+      then:
+        #- delay: 10sec
+        - text_sensor.template.publish:
+            id: irrigation_zone2_times
+            state: !lambda return id(ui_zone2_times).state;
+
+  - platform: homeassistant
+    id: ui_zone3_times
+    entity_id: input_text.irrigation_zone3_times
+    on_value:
+      then:
+        #- delay: 10sec
+        - text_sensor.template.publish:
+            id: irrigation_zone3_times
+            state: !lambda return id(ui_zone3_times).state;
+
+  - platform: homeassistant
+    id: ui_zone4_times
+    entity_id: input_text.irrigation_zone4_times
+    on_value:
+      then:
+        #- delay: 10sec
+        - text_sensor.template.publish:
+            id: irrigation_zone4_times
+            state: !lambda return id(ui_zone4_times).state;
+
+  - platform: homeassistant
+    id: ui_zone5_times
+    entity_id: input_text.irrigation_zone5_times
+    on_value:
+      then:
+        #- delay: 10sec
+        - text_sensor.template.publish:
+            id: irrigation_zone5_times
+            state: !lambda return id(ui_zone5_times).state;
+
+  # ============================================================================= #
+  # Store time lists.
+  - platform: template
+    name: Irrigation Zone1 Times
+    id: irrigation_zone1_times
+    on_value:
+      then:
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone1_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone1_times).state);
+  - platform: template
+    name: Irrigation Zone2 Times
+    id: irrigation_zone2_times
+    on_value:
+      then:
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone2_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone2_times).state);
+  - platform: template
+    name: Irrigation Zone3 Times
+    id: irrigation_zone3_times
+    on_value:
+      then:
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone3_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone3_times).state);
+  - platform: template
+    name: Irrigation Zone4 Times
+    id: irrigation_zone4_times
+    on_value:
+      then:
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone4_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone4_times).state);
+  - platform: template
+    name: Irrigation Zone5 Times
+    id: irrigation_zone5_times
+    on_value:
+      then:
+        # Update the next scheduled run time.
+        - text_sensor.template.publish:
+            id: irrigation_zone5_next
+            state: !lambda |-
+              return update_next_runtime(id(irrigation_zone5_times).state);
+  # ============================================================================= #
+  # Set the next scheduled time.
+  - platform: template
+    name: Irrigation Zone1 Next
+    id: irrigation_zone1_next
+  - platform: template
+    name: Irrigation Zone2 Next
+    id: irrigation_zone2_next
+  - platform: template
+    name: Irrigation Zone3 Next
+    id: irrigation_zone3_next
+  - platform: template
+    name: Irrigation Zone4 Next
+    id: irrigation_zone4_next
+  - platform: template
+    name: Irrigation Zone5 Next
+    id: irrigation_zone5_next
+
+
+# Update the countdown timers every 5 seconds.
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          if (id(remaining_time1) > 0) {
+            // Sanity check
+            if (id(remaining_time1) > ((uint32_t)id(irrigation_zone1_duration).state * 60)) {
+              ESP_LOGE("Sanity check", "1.- remaining_time1 = %d > %d", id(remaining_time1), (uint32_t)id(irrigation_zone1_duration).state);
+              // Sanity check failed
+              id(remaining_time1) = 0;
+            }
+            // When the relay is on.
+            if (id(relay1).state) {
+              // Decrement the timer.
+              id(remaining_time1) -= 5;
+              // Turn off the relay when the time reaches zero... or the remaining time fails a sanity check!
+              if (id(remaining_time1) <= 0 || id(irrigation_zone1_remaining).state > id(irrigation_zone1_duration).state){
+              //if (id(remaining_time1) <= 0) {
+                id(relay1).turn_off();
+                id(remaining_time1) = 0;
+              }
+            }
+            // Update the remaining time display.
+            if (id(irrigation_zone1_remaining).state !=  ((id(remaining_time1) + 1)/60) ) {
+              id(irrigation_zone1_remaining).publish_state( ((id(remaining_time1) +1)/60));
+            }
+          } else if (id(irrigation_zone1_remaining).state != 0) {
+              id(irrigation_zone1_remaining).publish_state( 0 );
+          }
+          if (id(remaining_time2) > 0) {
+            // Sanity check
+            if (id(remaining_time2) > ((uint32_t)id(irrigation_zone2_duration).state * 60)) {
+              ESP_LOGE("Sanity check", "1.- remaining_time2 = %d > %d", id(remaining_time2), (uint32_t)id(irrigation_zone2_duration).state);
+              // Sanity check failed
+              id(remaining_time2) = 0;
+            }
+            // When the relay is on.
+            if (id(relay2).state) {
+              ESP_LOGD("INTERVAL_5s", "relay2 = %d", id(relay2).state);
+              // Decrement the timer.
+              id(remaining_time2) -= 5;
+              ESP_LOGD("INTERVAL_5s", "1.- remaining_time2 = %d", id(remaining_time2));
+              // Turn off the relay when the time reaches zero... or the remaining time fails a sanity check!
+              //if (id(remaining_time2) <= 0 || id(irrigation_zone2_remaining).state > (uint32_t)id(irrigation_zone2_duration).state){
+              if (id(remaining_time2) <= 0) {
+                ESP_LOGD("INTERVAL_5s", "2.- remaining_time2 = %d", id(remaining_time2));
+                id(relay2).turn_off();
+                id(remaining_time2) = 0;
+                ESP_LOGD("INTERVAL_5s", "3.- remaining_time2 = %d", id(remaining_time2));
+              }
+            }
+            // Update the remaining time display.
+            if (id(irrigation_zone2_remaining).state !=  ((id(remaining_time2) + 1)/60) ) {
+              ESP_LOGD("INTERVAL_5s", "Publish irrigation_zone2_remaining to %d", ((id(remaining_time2) + 1)/60));
+              id(irrigation_zone2_remaining).publish_state( ((id(remaining_time2) + 1)/60) );
+            }
+          } else if (id(irrigation_zone2_remaining).state != 0) {
+              id(irrigation_zone2_remaining).publish_state( 0 );
+          }
+          if (id(remaining_time3) > 0) {
+            // Sanity check
+            if (id(remaining_time3) > ((uint32_t)id(irrigation_zone3_duration).state * 60)) {
+              ESP_LOGE("Sanity check", "1.- remaining_time3 = %d > %d", id(remaining_time3), (uint32_t)id(irrigation_zone3_duration).state);
+              // Sanity check failed
+              id(remaining_time3) = 0;
+            }
+            // When the relay is on.
+            if (id(relay3).state) {
+              // Decrement the timer.
+              id(remaining_time3) -= 5;
+              // Turn off the relay when the time reaches zero... or the remaining time fails a sanity check!
+              if (id(remaining_time3) <= 0 || id(irrigation_zone3_remaining).state > id(irrigation_zone3_duration).state){
+              //if (id(remaining_time3) <= 0) {
+                id(relay3).turn_off();
+                id(remaining_time3) = 0;
+              }
+            }
+            // Update the remaining time display.
+            if (id(irrigation_zone3_remaining).state !=  ((id(remaining_time3) + 1)/60) ) {
+              id(irrigation_zone3_remaining).publish_state( ((id(remaining_time3) +1)/60));
+            }
+          } else if (id(irrigation_zone3_remaining).state != 0) {
+              id(irrigation_zone3_remaining).publish_state( 0 );
+          }
+          if (id(remaining_time4) > 0) {
+            // Sanity check
+            if (id(remaining_time4) > ((uint32_t)id(irrigation_zone4_duration).state * 60)) {
+              ESP_LOGE("Sanity check", "1.- remaining_time4 = %d > %d", id(remaining_time4), (uint32_t)id(irrigation_zone4_duration).state);
+              // Sanity check failed
+              id(remaining_time4) = 0;
+            }
+            // When the relay is on.
+            if (id(relay4).state) {
+              // Decrement the timer.
+              id(remaining_time4) -= 5;
+              // Turn off the relay when the time reaches zero... or the remaining time fails a sanity check!
+              if (id(remaining_time4) <= 0 || id(irrigation_zone4_remaining).state > id(irrigation_zone4_duration).state){
+              //if (id(remaining_time4) <= 0) {
+                id(relay4).turn_off();
+                id(remaining_time4) = 0;
+              }
+            }
+            // Update the remaining time display.
+            if (id(irrigation_zone4_remaining).state !=  ((id(remaining_time4) + 1)/60) ) {
+              id(irrigation_zone4_remaining).publish_state( ((id(remaining_time4) +1)/60));
+            }
+          } else if (id(irrigation_zone4_remaining).state != 0) {
+              id(irrigation_zone4_remaining).publish_state( 0 );
+          }
+          if (id(remaining_time5) > 0) {
+            // Sanity check
+            if (id(remaining_time5) > ((uint32_t)id(irrigation_zone5_duration).state * 60)) {
+              ESP_LOGE("Sanity check", "1.- remaining_time5 = %d > %d", id(remaining_time5), (uint32_t)id(irrigation_zone5_duration).state);
+              // Sanity check failed
+              id(remaining_time5) = 0;
+            }
+            // When the relay is on.
+            if (id(relay5).state) {
+              // Decrement the timer.
+              id(remaining_time5) -= 5;
+              // Turn off the relay when the time reaches zero... or the remaining time fails a sanity check!
+              if (id(remaining_time5) <= 0 || id(irrigation_zone5_remaining).state > id(irrigation_zone5_duration).state){
+              //if (id(remaining_time5) <= 0) {
+                id(relay5).turn_off();
+                id(remaining_time5) = 0;
+              }
+            }
+            // Update the remaining time display.
+            if (id(irrigation_zone5_remaining).state !=  ((id(remaining_time5) + 1)/60) ) {
+              id(irrigation_zone5_remaining).publish_state( ((id(remaining_time5) + 1)/60));
+            }
+          } else if (id(irrigation_zone5_remaining).state != 0) {
+              id(irrigation_zone5_remaining).publish_state( 0 );
+          }
+# Time based automations.
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: Europe/Madrid
+    on_time:
+      - seconds: 0
+        minutes: /1
+        then:
+          - lambda: |-
+              if (scheduled_runtime(id(irrigation_zone1_next).state.c_str())) {
+                id(irrigation_zone1).turn_on();
+              }
+              if (scheduled_runtime(id(irrigation_zone2_next).state.c_str())) {
+                id(irrigation_zone2).turn_on();
+              }
+              if (scheduled_runtime(id(irrigation_zone3_next).state.c_str())) {
+                id(irrigation_zone3).turn_on();
+              }
+              if (scheduled_runtime(id(irrigation_zone4_next).state.c_str())) {
+                id(irrigation_zone4).turn_on();
+              }             
+              if (scheduled_runtime(id(irrigation_zone5_next).state.c_str())) {
+                id(irrigation_zone5).turn_on();
+              }              
