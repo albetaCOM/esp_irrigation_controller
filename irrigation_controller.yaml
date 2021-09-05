@@ -4,18 +4,33 @@ esphome:
   board: nodemcu-32s
   includes:
     - irrigation.h
+  on_boot:
+    priority: -100
+    then:
+      - lambda: id(boot_counter) = id(boot_counter) + 1;      
+      - sensor.template.publish:
+          id: boot_counter_sensor
+          state: !lambda return id(boot_counter);
+      - text_sensor.template.publish:
+          id: reset_time_sensor
+          state: !lambda |-
+            char str[17];
+            time_t currTime = id(homeassistant_time).now().timestamp;
+            strftime(str, sizeof(str), "%Y-%m-%d %H:%M", localtime(&currTime));
+            return  { str };
 
 wifi:
-  ssid: " "
-  password: " "
+  ssid: "My SSID"
+  password: "My password"
   manual_ip:
     static_ip: XXX.XXX.XXX.XXX
-    gateway: XXX.XXX.XXX.XXX
-    subnet: XXX.XXX.XXX.XXX
+    gateway:  XXX.XXX.XXX.XXX
+    subnet:  XXX.XXX.XXX.XXX
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Controlador Reg Fallback Hotspot"
     password: "HcIkjUJHSweV"
+  reboot_timeout: 1h
 
 captive_portal:
 
@@ -51,10 +66,27 @@ globals:
   - id: remaining_time5
     type: int
     restore_value: no
-    initial_value: "0"    
+    initial_value: "0"
+  - id: boot_counter
+    type: uint
+    restore_value: yes
+    initial_value: "0"
+    
   # ============================================================================= #
 switch:
   # ============================================================================= #
+  - platform: template
+    name: Reset Boot Counter
+    id: reset_boot_counter
+    lambda: return false;
+    turn_on_action:
+      then:
+        - lambda: id(boot_counter) = 0;   
+        - sensor.template.publish:
+            id: boot_counter_sensor
+            state: !lambda return id(boot_counter);
+        
+
   # Virtual Zone Switches which toggle the relay, and store the current state.
   - platform: template
     name: Irrigation Zone1
@@ -148,22 +180,15 @@ switch:
         - globals.set:
             id: remaining_time1
             value: !lambda return id(irrigation_zone1_duration).state * 60;
-        # Show the remaining time.
-        #- sensor.template.publish:
-        #    id: irrigation_zone1_remaining
-        #    state: !lambda return id(irrigation_zone1_duration).state;
         # Show the "Next Time" as "ara".
         - text_sensor.template.publish:
             id: irrigation_zone1_next
-            state: "now"
+            state: "ara"
     on_turn_off:
       then:
         - globals.set:
             id: remaining_time1
             value: "0"
-        #- sensor.template.publish:
-        #    id: irrigation_zone1_remaining
-        #    state: "0"
         # Update the next scheduled run time.
         - text_sensor.template.publish:
             id: irrigation_zone1_next
@@ -183,13 +208,6 @@ switch:
         - logger.log:
             format: "Starting count down timer remaining_time2 time : %d"
             args: [ 'id(remaining_time2)']
-        # Show the remaining time.
-        #- sensor.template.publish:
-        #    id: irrigation_zone2_remaining
-        #    state: !lambda return id(irrigation_zone2_duration).state;
-        #- logger.log:
-        #    format: "Updating irrigation_zone2_remaining to %d"
-        #    args: [ 'id(irrigation_zone2_duration).state']
         # Show the "Next Time" as "ara".
         - text_sensor.template.publish:
             id: irrigation_zone2_next
@@ -202,12 +220,6 @@ switch:
         - logger.log:
             format: "remaining_time2 = %d"
             args: [ 'id(remaining_time2)']
-        #- logger.log:
-        #    format: "Publish irrigation_zone2_remaining to %d"
-        #    args: [ '0']
-        #- sensor.template.publish:
-        #    id: irrigation_zone2_remaining
-        #    state: "0"
         # Update the next scheduled run time.
         - text_sensor.template.publish:
             id: irrigation_zone2_next
@@ -224,10 +236,6 @@ switch:
         - globals.set:
             id: remaining_time3
             value: !lambda return id(irrigation_zone3_duration).state * 60;
-        # Show the remaining time.
-        #- sensor.template.publish:
-        #    id: irrigation_zone3_remaining
-        #    state: !lambda return id(irrigation_zone3_duration).state;
         # Show the "Next Time" as "ara".
         - text_sensor.template.publish:
             id: irrigation_zone3_next
@@ -237,9 +245,6 @@ switch:
         - globals.set:
             id: remaining_time3
             value: "0"
-        #- sensor.template.publish:
-        #    id: irrigation_zone3_remaining
-        #    state: "0"
         # Update the next scheduled run time.
         - text_sensor.template.publish:
             id: irrigation_zone3_next
@@ -256,10 +261,6 @@ switch:
         - globals.set:
             id: remaining_time4
             value: !lambda return id(irrigation_zone4_duration).state * 60;
-        # Show the remaining time.
-        #- sensor.template.publish:
-        #    id: irrigation_zone4_remaining
-        #    state: !lambda return id(irrigation_zone4_duration).state;
         # Show the "Next Time" as "ara".
         - text_sensor.template.publish:
             id: irrigation_zone4_next
@@ -269,9 +270,6 @@ switch:
         - globals.set:
             id: remaining_time4
             value: "0"
-        #- sensor.template.publish:
-        #    id: irrigation_zone4_remaining
-        #    state: "0"
         # Update the next scheduled run time.
         - text_sensor.template.publish:
             id: irrigation_zone4_next
@@ -288,10 +286,6 @@ switch:
         - globals.set:
             id: remaining_time5
             value: !lambda return id(irrigation_zone5_duration).state * 60;
-        # Show the remaining time.
-        #- sensor.template.publish:
-        #    id: irrigation_zone5_remaining
-        #    state: !lambda return id(irrigation_zone5_duration).state;
         # Show the "Next Time" as "ara".
         - text_sensor.template.publish:
             id: irrigation_zone5_next
@@ -301,9 +295,6 @@ switch:
         - globals.set:
             id: remaining_time5
             value: "0"
-        #- sensor.template.publish:
-        #    id: irrigation_zone5_remaining
-        #    state: "0"
         # Update the next scheduled run time.
         - text_sensor.template.publish:
             id: irrigation_zone5_next
@@ -381,86 +372,43 @@ sensor:
   - platform: template
     name: Irrigation Zone1 Remaining
     id: irrigation_zone1_remaining
-    #lambda: "return ((id(remaining_time1) + 1)/60);"
     accuracy_decimals: 0
     unit_of_measurement: minutes
     icon: mdi:timer-outline
-    #on_value:
-    #  then:
-    #    - if:
-    #        condition:
-    #          lambda: return id(remaining_time1) <= 0;
-    #        then:
-    #          - switch.turn_off: relay1
-    #          - lambda: id(remaining_time1) = 0;
 
   - platform: template
     name: Irrigation Zone2 Remaining
     id: irrigation_zone2_remaining
-    #lambda: "return ((id(remaining_time2) + 1)/60);"
     accuracy_decimals: 0
     unit_of_measurement: minutes
     icon: mdi:timer-outline
-    #on_value:
-    #  then:
-    #    - if:
-    #        condition:
-    #          lambda: return id(remaining_time2) <= 0;
-    #        then:
-    #          - logger.log:
-    #              format: "irrigation_zone2_remaining updated with remaining_time2 = %d -> relay2 switch off"
-    #              args: [ 'id(remaining_time2)']
-    #          - switch.turn_off: relay2
-    #          - lambda: id(remaining_time2) = 0;
 
   - platform: template
     name: Irrigation Zone3 Remaining
     id: irrigation_zone3_remaining
-    #lambda: "return ((id(remaining_time3) + 1)/60);"
     accuracy_decimals: 0
     unit_of_measurement: minutes
     icon: mdi:timer-outline
-    #on_value:
-    #  then:
-    #    - if:
-    #        condition:
-    #          lambda: return id(remaining_time3) <= 0;
-    #        then:
-    #          - switch.turn_off: relay3
-    #          - lambda: id(remaining_time3) = 0;
 
   - platform: template
     name: Irrigation Zone4 Remaining
     id: irrigation_zone4_remaining
-    #lambda: "return ((id(remaining_time4) + 1)/60);"
     accuracy_decimals: 0
     unit_of_measurement: minutes
     icon: mdi:timer-outline
-    #on_value:
-    #  then:
-    #    - if:
-    #        condition:
-    #          lambda: return id(remaining_time4) <= 0;
-    #        then:
-    #          - switch.turn_off: relay4
-    #          - lambda: id(remaining_time4) = 0;
 
   - platform: template
     name: Irrigation Zone5 Remaining
     id: irrigation_zone5_remaining
-    #lambda: "return ((id(remaining_time5) + 1)/60);"
     accuracy_decimals: 0
     unit_of_measurement: minutes
     icon: mdi:timer-outline
-    #on_value:
-    #  then:
-    #    - if:
-    #        condition:
-    #          lambda: return id(remaining_time5) <= 0;
-    #        then:
-    #          - switch.turn_off: relay5
-    #          - lambda: id(remaining_time5) = 0;
 
+  - platform: template
+    name: Boot counter
+    id: boot_counter_sensor
+    accuracy_decimals: 0
+    icon: mdi:restart-alert
 
 text_sensor:
   # ============================================================================= #
@@ -584,6 +532,9 @@ text_sensor:
   - platform: template
     name: Irrigation Zone5 Next
     id: irrigation_zone5_next
+  - platform: template
+    name: Reset timestamp
+    id: reset_time_sensor
 
 
 # Update the countdown timers every 5 seconds.
